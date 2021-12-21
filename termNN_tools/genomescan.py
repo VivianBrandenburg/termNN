@@ -9,25 +9,16 @@ import pandas as pd
 import numpy as np
 
 from itertools import cycle, groupby
-import copy
-
-
 from operator import itemgetter
-
-import os
+import copy, os
 
 
 Max_length=75
 
 
-
-    
-
-# =============================================================================
-# get genome slices
-# =============================================================================
-
-
+# # =============================================================================
+# # get genome slices
+# # =============================================================================
 
 def get_gff(INF_gff):
     with open (INF_gff, 'r') as inf:
@@ -45,32 +36,13 @@ def get_genome(INF_genome):
     return genome.replace('T','U')
     
 
-
-
-
-def get_closest_CDS(ref_positions, gff):
-    closest_CDS, dist_CDS = [], []
-    
-    cycle_gff = cycle(gff)
-    closest = next(cycle_gff) 
-    closest2 = next(cycle_gff)
-    
-    for x in ref_positions:
-        while abs(x-closest) > abs(x-closest2):
-            closest = copy.deepcopy(closest2)
-            closest2 = next(cycle_gff)
-        closest_CDS.append(closest)
-        dist_CDS.append(x-closest)
-    return closest_CDS, dist_CDS
-
-
-
-
 # =============================================================================
-#prep genome scan by encoding entire genome
+# encode genome
 # =============================================================================
 
 def encode_genome(genome, gff, splits, DIR_out, reverse):
+    check_and_make_dir(DIR_out)
+    
     # prep data
     slices = [genome[x:x+75] for x in range(0,len(genome)-75,3)]
     nt_ref = [x+38 for x in range(0,len(genome)-75,3)]
@@ -82,12 +54,9 @@ def encode_genome(genome, gff, splits, DIR_out, reverse):
         slices = [reverse_complement(x) for x in slices]
     
     
-    #write out data
+    # prep slicing
     data = pd.DataFrame({'seq':slices, 'nt_ref': nt_ref, 
                           'next_CDS': next_CDS, 'dist_CDS': dist_CDS})
-    data.to_csv(DIR_out+'genome_slices.csv')
-
-    # prep slicing
     split_length = int(len(data)/splits)    
     start, stop = 0, split_length
     
@@ -97,28 +66,51 @@ def encode_genome(genome, gff, splits, DIR_out, reverse):
         
         split_of_slice = slices[start:stop]
         split_of_data = pd.DataFrame({'seq':slices[start:stop], 'nt_ref': nt_ref[start:stop], 
-                         'next_CDS': next_CDS[start:stop], 'dist_CDS': dist_CDS[start:stop]})
+                          'next_CDS': next_CDS[start:stop], 'dist_CDS': dist_CDS[start:stop]})
         
         split_of_data.to_csv(DIR_out+ str(i) + '_genome.csv')
         slices_onehot = np.array([onehot_encoding(x) for x in split_of_slice])
         np.save(DIR_out +str(i)+ '_slices_onehot.npy', slices_onehot)
         print(f'prepared k={i}, onehot encoding')
         
-        # slices_matrix = np.array([matrix_encoding(x) for x in split_of_slice])
-        # np.save(DIR_out+ str(i)+ '_slices_matrix.npy', slices_matrix)
-        # print(f'prepared k={i}, matrix encoding')
+        slices_matrix = np.array([matrix_encoding(x) for x in split_of_slice])
+        np.save(DIR_out+ str(i)+ '_slices_matrix.npy', slices_matrix)
+        print(f'prepared k={i}, matrix encoding')
     
         start += split_length
         stop  += split_length 
+
+
+def get_closest_CDS(ref_positions, gff):
+    cycle_gff = cycle(gff)
+    closest = next(cycle_gff) 
+    closest2 = next(cycle_gff)
+
+    closest_CDS, dist_CDS = [], []
+    for x in ref_positions:
+        while abs(x-closest) > abs(x-closest2):
+            closest = copy.deepcopy(closest2)
+            closest2 = next(cycle_gff)
+        closest_CDS.append(closest)
+        dist_CDS.append(x-closest)
+    return closest_CDS, dist_CDS
         
-     
+
 # =============================================================================
 # do genome scan 
 # =============================================================================
-        
 
-def scan_genome(splits, ks, DIR_encodings, DIR_models, DIR_results):
-    for s in range(splits): #splits 
+def get_splits(inDir):
+    splits = set([x.split('_')[0] for x in os.listdir(inDir)])
+    splits = [x for x in splits if x.isnumeric()]
+    return len(splits)
+
+
+def scan_genome(ks, DIR_encodings, DIR_models, DIR_results):
+    splits = get_splits(DIR_encodings)
+    check_and_make_dir(DIR_results)
+    
+    for s in range(splits): 
         data = pd.read_csv(DIR_encodings + str(s)+'_genome.csv', index_col=0)
         
         for k in range(ks):
@@ -128,33 +120,21 @@ def scan_genome(splits, ks, DIR_encodings, DIR_models, DIR_results):
                 # model selection
                 input_type = model_vars['input']
                 model_name = model_vars['name']
-                
                 model = load_model(DIR_models+model_name+'/'+model_name+'_k'+str(k)+'.h5')
-                
-                
+                                
                 # get encoded input
                 if input_type=='onehot':
                     seqs_encoded = np.load(DIR_encodings + str(s) + '_slices_onehot.npy')
                 elif input_type=='matrix':
-                    seqs_encoded = np.load(DIR_encodings + str(s) + 'slices_matrix.npy')
+                    seqs_encoded = np.load(DIR_encodings + str(s) + '_slices_matrix.npy')
                 
                 data[model_name+'_'+str(k)] = model.predict(seqs_encoded)
-                
                 print(f'predicted slice={s}, k={k}, model={model_name}')
-                
         data.to_csv(DIR_results +str(s)+'_results.csv')
             
-
-
-
-
-
-
 # =============================================================================
 # find kernels 
 # =============================================================================
-
-
 
 def get_ranges(data):
     ranges =[]    
@@ -163,7 +143,6 @@ def get_ranges(data):
         group = list(map(int,group))
         ranges.append((group[0],group[-1]))
     return ranges
-
 
 
 def find_kernels_per_model(data, model, cutoff):
@@ -178,11 +157,8 @@ def find_kernels_per_model(data, model, cutoff):
         return res
 
 
-
-        
-
 def find_kernels(ks, cutoff, DIR_in, DIR_out, reverse):
-
+    check_and_make_dir(DIR_out)
     FILES = [x for x in os.listdir(DIR_in) if x.find('.csv') != -1]
     FILES.sort(key= lambda x: float(x.strip('_results.csv')))
     data = pd.DataFrame()
@@ -201,75 +177,12 @@ def find_kernels(ks, cutoff, DIR_in, DIR_out, reverse):
 # analyze genome scan, calc PPV     
 # =============================================================================
 
-
-# def calc_scan_PPVs(splits, max_dist_CDS, prediction_cutoff, DIR_results):
-#     tp, fp = pd.DataFrame(), pd.DataFrame()
-#     for s in range(splits):
-#         print(s)
-    
-#         # real data
-#         data_s = pd.read_csv(DIR_results + str(s) + '_results.csv', index_col=0)
-#         res = data_s.drop(['seq', 'nt_ref', 'next_CDS', 'dist_CDS'], axis=1)
-        
-#         # data processed into y_true and y_predict
-#         y_true = data_s.dist_CDS
-#         y_true = abs(y_true) <= max_dist_CDS
-#         y_pred = res > prediction_cutoff
-        
-#         #calc TP and FP
-#         TP, FP = [], []
-#         for col in y_pred.columns:
-#             TP.append(((y_pred[col] == True) & (y_true == True)).sum())    
-#             FP.append(((y_pred[col] == True) & (y_true == False)).sum()) 
-        
-#         #store TP and FP
-#         tp = pd.concat([tp, pd.DataFrame(data=[TP], columns=res.columns)])
-#         fp = pd.concat([fp, pd.DataFrame(data=[FP], columns=res.columns)])
-        
-        
-#     res  = pd.DataFrame({'tp': tp.sum(), 'fp': fp.sum()})    
-#     res['PPV'] = res.tp / (res.tp+res.fp)    
-#     res['hits']=res.tp+res.fp
-#     res['model_long'] = res.index
-#     res['model']= [ '_'.join(x[:-1]) for x in res.model_long.str.split('_')]
-#     res['k']= [ int(x[-1]) for x in res.model_long.str.split('_')]
-    
-#     return res    
-
-
-
 def calc_PPV(predictions, dist_CDS, pdc_cut, dist_cut):
     tp = ((predictions >= pdc_cut) & (abs(dist_CDS) <= dist_cut)).sum()
     fp = ((predictions >= pdc_cut) & (abs(dist_CDS) > dist_cut)).sum()
     PPV = tp/(tp+fp)
     return PPV
     
-    
-
-
-
-
-
-# def sum_hits(splits, prediction_cutoff, DIR_results):
-#     dist_at_hits = pd.DataFrame()  
-#     for s in range(splits):
-#         print(s)
-#         data_s = pd.read_csv(DIR_results + str(s) + '_results.csv', index_col=0)
-        
-#         # separate data and non-data columns
-#         non_data_names = ['seq', 'nt_ref', 'next_CDS', 'dist_CDS']
-        
-#         data_only = data_s.drop(non_data_names, axis=1 )
-#         dist_CDS = pd.DataFrame({key:data_s.dist_CDS for key in data_only.columns})
-        
-#         # filter data for hits
-#         hits_mask = data_only > prediction_cutoff
-#         dist_at_hits_s = dist_CDS[hits_mask==True].dropna(axis=0, how='all').dropna(axis=1, how='all')
-#         dist_at_hits = pd.concat([dist_at_hits, dist_at_hits_s])
-        
-#     return dist_at_hits
-        
-        
 
 
 
@@ -294,9 +207,9 @@ def calc_PPV_best_kernels(DIR_kernels, FILE_arnold):
     # prep arnold data    
     arnold = pd.read_csv(FILE_arnold, index_col=0)
     arnold = pd.DataFrame({'model': 'ARNold', 'model_k': 'ARNold',
-                           'index_range':0, 'frame_len': arnold.length,
-                           'nt_ref': arnold.center, 'dist_CDS':arnold.dist_CDS,
-                           'strand':arnold.strand, 'prediction':1 })
+                            'index_range':0, 'frame_len': arnold.length,
+                            'nt_ref': arnold.center, 'dist_CDS':arnold.dist_CDS,
+                            'strand':arnold.strand, 'prediction':1 })
     arnold_fwd = arnold[arnold.strand=='+'].reset_index()
     arnold_rev = arnold[arnold.strand=='-'].reset_index()
     
@@ -312,17 +225,8 @@ def calc_PPV_best_kernels(DIR_kernels, FILE_arnold):
         df = best_hits[best_hits.model_k == m]
         PPV = calc_PPV(df.prediction, df.dist_CDS, prediction_cut, distanceCDS_cut)
         res = res.append({'model': df.iloc[0].model, 'model_k':m, 'PPV':PPV}, ignore_index=True)
+    
     return res
     
     
-    # # =============================================================================
-    # # plot 
-    # # =============================================================================
-    
-    # plot_genomescan(res, 'genomescan, kernels, best hits, all', res.model.unique() )
-    # plot_genomescan(res, 'genomescan, kernels, best hits, CNN', [x for x in res.model.unique() if x.find('LSTM') == -1] )
-    # plot_genomescan(res, 'genomescan, kernels, best hits, LSTM', [x for x in res.model.unique() if x.find('LSTM') != -1] )
-    
-
-
     

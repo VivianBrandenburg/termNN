@@ -1,3 +1,3 @@
-# where is the encoded genome?
+# where are the data?
 
-Due to its large size, the encoded genome has not been uploaded. You can create the files running genome_scan.py. 
+Due to their large size, the files with encoded genome (encoded_genome) have not been uploaded. You can create the files running **genome_scan.py. encode_genome**

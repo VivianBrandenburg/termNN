@@ -7,6 +7,12 @@ import sys
 
 mode = sys.argv[1]
 
+if mode not in ['encode_genome', 'scan_genome', 'find_kernels', 'calc_PPV']:
+    raise ValueError("""you did not choose a valid running mode.
+                     valid modes are: 'encode_genome', 'scan_genome', 'find_kernels', 'calc_PPV'""")
+
+
+
 # dirs
 DIR_genomic = 'data/terminators/ecoli_genome/'
 DIR_models = 'models/terminators/'

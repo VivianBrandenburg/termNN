@@ -1,5 +1,5 @@
 # termNN
-models for detection of intrinsic transcription terminators and tRNAs in bacteria
+CNN- and LSTM-based models for detection of intrinsic transcription terminators and tRNAs in bacteria.
 
 ## package requirements
 

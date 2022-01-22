@@ -98,7 +98,7 @@ def plot_performance(data, outname):
         arnold_2 = {'rec': 0.878,  'select': 0.953, 'model': "ARNold_paper"}
         data = data.append(arnold_2, ignore_index=True)
     
-    data = pd.melt(data, id_vars=['model'])
+    data = pd.melt(data, id_vars=['model', 'model_k'])
     sns_styles({'figsize':(5.8,1.5), 'font_scale':0.7, 'linewidth':0.3})
     myplot = sns.barplot(data=data,  x='variable', y='value', hue='model', palette=palette_blues,
                          order=['acc', 'rec', 'select'], capsize=0.03)

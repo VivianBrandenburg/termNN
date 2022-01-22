@@ -8,6 +8,8 @@ import pandas as pd
 
 ks = 10
 
+res = pd.DataFrame()
+
 for RNA_type in ['terminators', 'tRNAs']:
     
     # set right paths for RNA-type     
@@ -15,14 +17,15 @@ for RNA_type in ['terminators', 'tRNAs']:
     PATH_val_data =  f'data/{RNA_type}/training/' 
     PATH_model =   f'models/{RNA_type}/'
     
-    res = pd.DataFrame()
     for m in toolbox.all_models:
         print(m['name'])
-        valid_dic = {'acc':[], 'prec':[], 'rec':[], 'select':[], 'model':m['name']}  
+        valid_dic = {'acc':[], 'prec':[], 'rec':[], 'select':[], 'model':m['name'],
+                     'model_k':[f'{m["name"]}_k{str(k)}' for k in range(ks)]}  
         
         # =====================================================================
         # calc validation for each model 
         # =====================================================================
+        
         for k in range(ks):
             
             # get validation data
@@ -52,8 +55,11 @@ for RNA_type in ['terminators', 'tRNAs']:
     
     if RNA_type == 'terminators':
         arnold = validation.read_arnold('data/arnold/validation_data.txt')
-        valid_dic = {'acc':[], 'prec':[], 'rec':[], 'select':[], 'model':'ARNold'}  
+        valid_dic = {'acc':[], 'prec':[], 'rec':[], 'select':[], 'model':'ARNold',
+                     'model_k':[f'ARNold_k{str(k)}' for k in range(ks)]}  
+  
         for k in range(ks):
+
             df = arnold[arnold.k == k]
             for key,value in validation.calc_validation(df.type, df.value).items(): 
                 valid_dic[key].append(value)        

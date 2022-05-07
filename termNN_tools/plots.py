@@ -3,6 +3,7 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib import rc
 
 # =============================================================================
 # styles
@@ -16,6 +17,25 @@ model_labels = {'CNN_onehot': 'one-hot CNN',
           'LSTM_onehot': 'one-hot LSTM', 
           'LSTM_onehot_pretrained': 'one-hot LSTM pre-trained',
           'ARNold':'ARNold'}
+
+
+
+
+model_styles =[{'name':'CNN_onehot',  'col':'#8BB0CB', 'dash':[1,0], 'width':1.6, 'pre':False},
+              {'name':'CNN_onehot_pretrained',  'col':'#274F66', 'dash':[5,2], 'width':1.3, 'pre':True},
+              {'name':'CNN_matrix',   'col':'#FFDAA6', 'dash':[1,0], 'width':1.6, 'pre':False},
+              {'name':'CNN_matrix_pretrained',   'col':'#eb9a28', 'dash':[5,2], 'width':1.3, 'pre':True}, 
+              {'name':'LSTM_onehot',   'col':'#8BB68F', 'dash':[1,0], 'width':1.6, 'pre':False},
+              {'name':'LSTM_onehot_pretrained',   'col':'#093315', 'dash':[5,2], 'width':1.3, 'pre':True}, 
+              {'name':'ARNold',   'col':'dimgrey', 'dash': [1,1,1,5], 'width':1.3}, 
+            ]
+
+
+
+
+palette2 = {x['name']:x['col'] for x in model_styles}
+dashes2 = {x['name']:x['dash'] for x in model_styles}
+
 
 
 val_labels = {'acc': 'accuracy',  'prec': 'precision',
@@ -38,24 +58,35 @@ order = ['CNN_onehot', 'CNN_onehot_pretrained',
 
 markers_sections = {'pad_left': 'o',
           'A_tail': 'D',
+          'stretch_left': 'D',
           'stem_left': '^',
           'loop': 'X',
           'stem_right': 'v',
           'U_tail': 's',
+          'strech_right': 's',
           'pad_right': 'H'}
 
 
 
-palette_sections = {'pad_left': '#E2C987',
-          'A_tail': '#315361',
+
+palette_sections = {'pad_left': 'white',
+          'A_tail': 'lightgrey',
+          'stretch_left': 'lightgrey',
           'stem_left': '#E76A3C',
-          'loop': '#9C3C19',
+          'loop': 'dimgrey',
           'stem_right': '#E76A3C',
-          'U_tail': '#315361',
-          'pad_right': '#E2C987'}
+          'U_tail': 'lightgrey',
+          'strech_right': 'lightgrey',
+          'pad_right': 'white'}
 
 
 
+
+
+
+
+
+plotcolor = 'dimgrey'
 
 
 # =============================================================================
@@ -86,7 +117,16 @@ def sns_styles(change_style={}):
     sns.set_context(style['context'], font_scale=style['font_scale'], 
                     rc={"lines.linewidth": style['linewidth']})
             
-        
+
+
+def fix_axis(ax):
+    for axis in ['top','bottom','left','right']:
+        ax.spines[axis].set_linewidth(0.5)
+        ax.spines[axis].set_color(plotcolor)
+    ax.tick_params(width=0.5, color=plotcolor)
+    
+
+
 # =============================================================================
 # specific functions     
 # =============================================================================
@@ -171,3 +211,130 @@ def plot_mutations_sc(data, outname):
     save_figs(outname)
     plt.show()
  
+    
+    
+
+
+
+def plot_sendseq(aucs, prerec, plottype, DIR_plot):
+        
+       
+        
+    # prep plot data
+    if plottype == 'LSTM':
+        plot_aucs = aucs[aucs.model.str.contains('LSTM')]
+        plot_prerec = prerec[prerec.model.str.contains('LSTM')]
+        # plot_avscore = pd.read_csv('ju2019_aroundSEndSeqHits.csv')
+        model_selected = ['LSTM_onehot', 'LSTM_onehot_pretrained']
+        plotname = 'ju2019_LSTM'
+        
+    if plottype == 'CNN':
+        plot_aucs = aucs[~aucs.model.str.contains('LSTM')]
+        plot_prerec = prerec[~prerec.model.str.contains('LSTM')]
+        # plot_avscore = pd.read_csv('ju2019_aroundSEndSeqHits.csv')
+        model_selected = ['CNN_onehot', 'CNN_onehot_pretrained', 'CNN_matrix', 'CNN_matrix_pretrained']
+        plotname = 'ju2019_CNN'
+    
+
+   
+    
+    # prep plot style
+    labelsize=8
+    linewidth = 1
+    plotcolor = 'dimgrey'
+    sns.set_style("ticks")
+    rc('xtick', labelsize=labelsize, color=plotcolor) 
+    rc('ytick', labelsize=labelsize, color=plotcolor )
+    rc('legend', fontsize=labelsize,  labelcolor=plotcolor)
+    
+    dashes2 = {m['name']:m['dash'] for m in model_styles }
+    plot_labels=[model_labels[x] for x in model_selected]
+    
+    
+    
+    
+    
+    # make plot layout
+    fig, axs = plt.subplots(2, 2, figsize=(7.5,5.7), gridspec_kw={'wspace':0.27, 'hspace':0.46})
+    (ax1, ax2), (ax3, ax4) = axs
+    
+    
+    
+    # ax1: average scores around tts 
+    # was removed because data size was too large
+    
+    
+    
+    # ax2: area under precision-recall-curve for different thresholds
+    sns.lineplot(ax=ax2, data=plot_aucs, x='max_dist', y='auc', hue='model',
+                  markers=['o', 's']*int(len(model_selected)/2), style='model', markersize=5, 
+                  palette = palette2, dashes=dashes2, linewidth=linewidth)
+    ax2.set_xlabel('distance treshold', size=labelsize, color=plotcolor)
+    ax2.set_ylabel('AUC', size=labelsize, color=plotcolor)
+    
+    legend_labels, _= ax2.get_legend_handles_labels()
+    ax2.legend(legend_labels, plot_labels, frameon=False)
+        
+    ax2.vlines(x=35, ymin=0.01, ymax=0.6, linestyle='--', colors='grey', linewidth=linewidth)
+    
+    
+    # ax3: precision-recall-curve for distance = 35 nt 
+    prerec_dist = plot_prerec[plot_prerec.max_dist == 35]
+    for model in [x for x in model_styles if x['name'] in model_selected]:
+        for k in range(10):
+    
+                model_k = model['name']+'_'+str(k)
+                res_ms = prerec_dist[prerec_dist.model_k == model_k]
+                
+                if k < 9:
+                    ax3.plot(res_ms.rec, res_ms.prec, 
+                            dashes = model['dash'], linewidth=model['width']*0.5, 
+                            color=model['col'])
+                else:
+                    ax3.plot(res_ms.rec, res_ms.prec, 
+                              dashes = model['dash'], linewidth=model['width']*0.5,
+                              color=model['col'],
+                              label=model_labels[model['name']])  
+                    
+                    
+    res_arnold = prerec[(prerec.model=='arnold') & (prerec.max_dist == 35)]
+    ax3.plot(res_arnold.rec, res_arnold.prec,   
+             'o', markersize=5, linewidth=model['width'],
+             color=palette2['ARNold'],  label='ARNold', alpha=0.7) 
+    ax3.set_title('max dist = ' + str(35)  + ' nt', size=labelsize, color=plotcolor)
+    ax3.legend(prop={"size":labelsize}, 
+               bbox_to_anchor=(0.3,-0.6), loc=6, borderaxespad=0., 
+               labelcolor=plotcolor, frameon=False)                        
+    ax3.set_xlabel('recall', size=labelsize, color=plotcolor)
+    ax3.set_ylabel('precision', size=labelsize, color=plotcolor)
+        
+    
+    
+    # ax4: area under precision-recall curve at dist = 35 nt
+    sns.swarmplot(ax=ax4, data=plot_aucs[plot_aucs.max_dist == 35], x='model', y='auc', 
+                  dodge=True,  size=6, palette = palette2, 
+                  zorder=1, alpha=0.7)
+    sns.pointplot(ax=ax4, data=plot_aucs[plot_aucs.max_dist == 35], x='model', y='auc',
+                  palette=['dimgrey'], zorder=0, capsize=0.15, scale=0.4, 
+                  markers='s', errwidth=0.7)
+    ax4.set_xticklabels([model_labels[x.get_text()].replace(' ', '\n') for x in  ax4.get_xticklabels()])
+    
+    ax4.set_xlabel('')
+    ax4.set_ylabel('AUC', size=labelsize, color=plotcolor)
+    ax4.set_title('max dist = ' + str(35)  + ' nt', size=labelsize, color=plotcolor)
+    # ax4.set_ylim(0.35, 0.61)
+    
+    
+    
+    # fix axes styles 
+    for ax in [ax1, ax2, ax3, ax4]:
+        fix_axis(ax)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        
+    
+    # save and plot
+    plt.savefig(DIR_plot + plotname  + '.svg',  bbox_inches = 'tight')
+    plt.savefig(DIR_plot + plotname + '.png',  bbox_inches = 'tight', dpi = 600)
+    plt.show()
+    

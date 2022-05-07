@@ -12,10 +12,16 @@ all_models =[{'type':'CNN', 'input':'onehot', 'pretrained':False, 'name':'CNN_on
 
 
 
+all_model_ks = {model['name'] + '_' + str(k):model['name'] for model in all_models for k in range(ks) }
+
+
 
 model_names = [x['name'] for x in all_models]
 models_k = [x+'_'+str(k) for x in model_names for k in range(ks)]
 
+
+
+CNNs = [x['name'] for x in all_models if x['type'] == 'CNN']
 
 
 reverse_tab = str.maketrans("ACUG", "UGAC")

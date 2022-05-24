@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import pandas as pd
 
 ks = 10
 
@@ -45,3 +45,19 @@ def check_and_make_dir(*mydirs):
         if not os.path.exists(mydir):
             os.makedirs(mydir)
             print('created directory', mydir)
+
+
+
+def read_arnold_validation(INF):
+    with open (INF, 'r') as inf:
+        arnold = inf.read()
+    arnold = [x for x in arnold.split('>') if x]
+    found = [0 if x.find('No predicted transcription') != -1 else 1 for x in arnold]
+    ids = [x.split('\n')[0] for x in arnold]
+    ids_split = [x.split('_') for x in ids]
+    data = pd.DataFrame({'id':ids,
+                         'idx':[int(x[0]) for x in ids_split],
+                         'k':[int(x[1]) for x in ids_split],
+                         'y_true':[int(x[2]) for x in ids_split],
+                         'y_pred': found})
+    return data

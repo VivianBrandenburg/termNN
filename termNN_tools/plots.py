@@ -338,3 +338,81 @@ def plot_sendseq(aucs, prerec, plottype, DIR_plot):
     plt.savefig(DIR_plot + plotname + '.png',  bbox_inches = 'tight', dpi = 600)
     plt.show()
     
+
+
+
+def plot_validation(prerec_table, metrics_table, model_selector,  outfile, RNA_type):
+    ks = 10
+    arnold = metrics_table[metrics_table.model == 'ARNold']
+    
+    # prep plot style
+    models = [x for x in model_styles if x['name'].find(model_selector) != -1]
+    labelsize=8
+    sns.set_style("ticks")
+    rc('xtick', labelsize=labelsize, color=plotcolor) 
+    rc('ytick', labelsize=labelsize, color=plotcolor )
+    rc('legend', fontsize=labelsize,  labelcolor=plotcolor)
+    fig, axs = plt.subplots(2, 2, figsize=(7.5,5.7), gridspec_kw={'wspace':0.27, 'hspace':0.46, 'height_ratios': [1, 1.5]})
+    (ax1, ax2), (ax3, ax4) = axs
+    
+    
+    
+    # plot f1-score and auc
+    metrics_auc = metrics_table[metrics_table.model.str.contains(model_selector)]
+    metrics_f1 = metrics_auc
+    if RNA_type == 'terminators':
+        metrics_f1 = metrics_auc.append(metrics_table[metrics_table.model.str.contains('ARNold')],
+                                        ignore_index=True)
+    for ax, y, data in zip([ax1, ax2], ['f1', 'auc'], [metrics_f1, metrics_auc]):
+        sns.swarmplot(ax=ax, data=data, x='model', y=y, 
+                      dodge=True,  size=6, palette = palette2, 
+                      zorder=1, alpha=0.7)
+        sns.pointplot(ax=ax, data=data, x='model', y=y,  
+                      palette=['dimgrey'], zorder=0, capsize=0.15, scale=0.4, 
+                      markers='s', errwidth=0.7)
+        ax.set_xticklabels([model_labels[x.get_text()].replace(' ', '\n') for x in  ax.get_xticklabels()])
+        ax.set_xlabel('')
+        fix_axis(ax)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+    ax1.set_ylabel('F1-score', size=labelsize, color=plotcolor)
+    ax2.set_ylabel('AUPRC', size=labelsize, color=plotcolor)      
+
+
+
+    # plot precision-recall-curves
+    for m, ax in zip(models, [ax3, ax3, ax4, ax4]):
+        for k in range(ks):
+            prerec = prerec_table[(prerec_table.model==m['name']) & (prerec_table.k==k)]
+            prerec = prerec.sample(frac=0.2).sort_index()
+                
+            if k<9:
+                ax.plot(prerec.rec, prerec.prec, color=m['col'], 
+                        dashes = m['dash'], linewidth=m['width'], alpha=0.8)
+    
+            else:
+                ax.plot(prerec.rec, prerec.prec, color=m['col'], 
+                        dashes = m['dash'], linewidth=m['width'], alpha=0.8,
+                        label = model_labels[m['name']])
+                if m['pre']:
+                    if RNA_type == 'terminators':
+                        ax.plot(arnold.recall, arnold.precision, '.', 
+                                color = palette2['ARNold'], alpha=0.9, 
+                                label='ARNold')
+                    ax.legend(fontsize = labelsize , frameon=False)
+                    ax.set_xlabel('recall', size=labelsize, color=plotcolor)
+                    ax.set_ylabel('precision', size=labelsize, color=plotcolor)
+                    fix_axis(ax)
+
+    
+                    
+    if model_selector == 'LSTM':
+        ax4.axis('off')
+    
+    
+    plt.savefig(outfile + '.svg',  bbox_inches='tight')               
+    plt.savefig(outfile + '.png', dpi=600, bbox_inches='tight')               
+    plt.show()
+
+
+
